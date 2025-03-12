@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String             @id @default(uuid()) @map("id") // Matches Supabase auth.users
+  email         String?            @unique
+  name          String?
+  avatar_url    String?
+  organizations OrganizationUser[]
+  oauthAccounts OAuthAccount[]
+  createdAt     DateTime           @default(now())
+
+  @@map("users")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users    OrganizationUser[]
+  projects Project[]
+}
+
+model OrganizationUser {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  role           Role     @default(MEMBER)
+  joinedAt       DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model Project {
+  id             String @id @default(uuid())
+  name           String
+  organizationId String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OAuthAccount {
+  id         String @id @default(uuid())
+  provider   String
+  providerId String
+  userId     String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
