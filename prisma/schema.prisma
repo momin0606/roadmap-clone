@@ -21,6 +21,7 @@ model User {
   organizations OrganizationUser[]
   oauthAccounts OAuthAccount[]
   createdAt     DateTime           @default(now())
+  posts         Post[]
 
   @@map("users")
 }
@@ -31,8 +32,9 @@ model Organization {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  users    OrganizationUser[]
-  projects Project[]
+  users OrganizationUser[]
+
+  Board Board[]
 }
 
 model OrganizationUser {
@@ -41,6 +43,7 @@ model OrganizationUser {
   organizationId String
   role           Role     @default(MEMBER)
   joinedAt       DateTime @default(now())
+  active         Boolean  @default(false)
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -48,12 +51,43 @@ model OrganizationUser {
   @@unique([userId, organizationId])
 }
 
-model Project {
-  id             String @id @default(uuid())
-  name           String
-  organizationId String
+model Status {
+  id        String   @id @default(uuid())
+  name      String   @default("Draft")
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  Post      Post[]
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id])
+}
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model Board {
+  id             String       @id @default(uuid())
+  name           String
+  slug           String       @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  statuses       Status[]
+
+  Post Post[]
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  statusId  String
+  status    Status   @relation(fields: [statusId], references: [id])
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id])
 }
 
 model OAuthAccount {
