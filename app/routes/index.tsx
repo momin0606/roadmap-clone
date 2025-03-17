@@ -1,6 +1,6 @@
-import type { Route } from "./+types/index";
-import { redirect, type MetaFunction } from "react-router";
+import { Outlet, type MetaFunction } from "react-router";
 import { getServerClient } from "~/server";
+import type { Route } from "./+types";
 
 export const meta: MetaFunction = () => {
   return [
@@ -9,17 +9,23 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export async function loader({ request }: Route.LoaderArgs) {
-  try {
-    const sbServerClient = getServerClient(request);
-    const userResponse = await sbServerClient.auth.getUser();
-    if (!userResponse?.data?.user) {
-      throw redirect("/signin");
-    } else {
-      throw redirect("/home");
-    }
-  } catch (error) {
-    console.error(error);
-    throw redirect("/signin");
+export const loader = async ({ request }: Route.LoaderArgs) => {
+  const sbServerClient = getServerClient(request);
+  const userResponse = await sbServerClient.auth.getUser();
+
+  if (userResponse?.data?.user) {
+    return { user: userResponse.data.user };
   }
+
+  return {
+    user: null,
+  };
+};
+
+export default function Index({ loaderData }: Readonly<Route.ComponentProps>) {
+  return (
+    <div>
+      <Outlet />
+    </div>
+  );
 }

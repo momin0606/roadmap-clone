@@ -1,17 +1,23 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import useFetch from "~/hooks/use-fetch";
 import { useForm } from "react-hook-form";
-import { Link, redirect, useNavigate, type MetaFunction } from "react-router";
+import {
+  Link,
+  redirect,
+  useLoaderData,
+  useNavigate,
+  type MetaFunction,
+} from "react-router";
 import { toast } from "sonner";
-import { signInAction } from "~/actions/auth-actions";
+import { updatePasswordAction } from "~/actions/auth-actions";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import {
-  signInSchema,
-  type SignInSchemaType,
+  updatePasswordSchema,
+  type UpdatePasswordSchemaType,
 } from "~/lib/validators/authValidators";
 import { getServerClient } from "~/server";
-import type { Route } from "./+types/signin";
+import type { Route } from "./+types/updatePassword";
 import { useEffect } from "react";
 
 export const meta: MetaFunction = () => {
@@ -23,79 +29,73 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const sbServerClient = getServerClient(request);
-  const userResponse = await sbServerClient.auth.getUser();
-  if (userResponse?.data?.user) {
-    throw redirect("/");
-  }
+  const code = request?.url?.split("?code=")?.[1];
+
+  let userSession = await sbServerClient.auth.exchangeCodeForSession(code);
 
   return {
-    env: {
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-    },
+    userSession: userSession,
   };
 }
 
-export default function SignIn() {
+export default function UpdatePassword() {
+  const { userSession } = useLoaderData();
   const {
     handleSubmit,
     register,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(signInSchema),
+    resolver: zodResolver(updatePasswordSchema),
   });
-  const { loading, error, data, fn: signInFn } = useFetch(signInAction);
+  const {
+    loading,
+    error,
+    data,
+    fn: updatePasswordFn,
+  } = useFetch(updatePasswordAction);
   const navigate = useNavigate();
 
-  const onSubmit = async (data: SignInSchemaType) => {
-    await signInFn(data);
+  const onSubmit = async (data: UpdatePasswordSchemaType) => {
+    await updatePasswordFn({
+      password: data.password,
+      email: userSession?.data?.user?.email,
+      refreshToken: userSession?.data?.session?.refresh_token,
+    });
+    navigate("/");
   };
   useEffect(() => {
-    if (data) {
-      toast.success("Signin successful");
+    console.log({ data });
+    if (data?.data?.email) {
+      toast.success(`Password updated successfully for ${data?.data.email}`);
       navigate("/");
     }
-  }, [loading]);
+  }, [loading, data]);
 
   return (
     <div className="p-8 min-2-3/4 w-[500px] mx-auto">
-      <h1 className="text-2xl"> Supabase Auth SignIn</h1>
+      <h1 className="text-2xl"> Supabase Auth Update Password</h1>
       <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="email" className="min-w-24">
-              Email:
-            </label>
-            <Input id="email" {...register("email")} />
-            {errors.email && (
-              <p className="text-red-600">{errors.email.message}</p>
-            )}
-          </div>
           <div className="flex flex-col gap-2">
             <label htmlFor="password" className="min-w-24">
               Password:
             </label>
-            <Input id="password" {...register("password")} type="password" />
+            <Input type="password" id="password" {...register("password")} />
             {errors.password && (
               <p className="text-red-600">{errors.password.message}</p>
             )}
           </div>
 
           <div className="flex flex-row justify-between mt-4 gap-4 items-center">
-            <div className="flex flex-col gap-2">
-              <Link to="/forgotPassword" className="text-sm underline">
-                Forgot Password?
-              </Link>
-              <Link to="/signup" className="text-sm underline">
-                Don't have an account?
-              </Link>
-            </div>
+            <Link to="/signup" className="text-sm underline">
+              Don't have an account?
+            </Link>
             <Button
               type="submit"
               className="bg-blue-500 text-white"
               disabled={!!loading}
             >
-              SignIn
+              Update Password
             </Button>
           </div>
           {error ? (

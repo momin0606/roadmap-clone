@@ -1,5 +1,8 @@
-import { parseCookieHeader, serializeCookieHeader } from "@supabase/ssr";
-import { createServerClient } from "@supabase/ssr";
+import {
+  createServerClient,
+  parseCookieHeader,
+  serializeCookieHeader,
+} from "@supabase/ssr";
 
 export const getServerClient = (request: Request) => {
   const headers = new Headers();

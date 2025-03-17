@@ -1,18 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import useFetch from "~/hooks/use-fetch";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, redirect, useNavigate, type MetaFunction } from "react-router";
 import { toast } from "sonner";
-import { signInAction } from "~/actions/auth-actions";
+import { forgotPasswordAction } from "~/actions/auth-actions";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import useFetch from "~/hooks/use-fetch";
 import {
-  signInSchema,
-  type SignInSchemaType,
+  forgotPasswordSchema,
+  type ForgotPasswordSchemaType,
 } from "~/lib/validators/authValidators";
 import { getServerClient } from "~/server";
-import type { Route } from "./+types/signin";
-import { useEffect } from "react";
+import type { Route } from "./+types/forgotPassword";
 
 export const meta: MetaFunction = () => {
   return [
@@ -36,30 +36,37 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
-export default function SignIn() {
+export default function ForgotPassword() {
   const {
     handleSubmit,
     register,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(signInSchema),
+    resolver: zodResolver(forgotPasswordSchema),
   });
-  const { loading, error, data, fn: signInFn } = useFetch(signInAction);
+  const {
+    loading,
+    error,
+    data,
+    fn: ForgotPasswordFn,
+  } = useFetch(forgotPasswordAction);
   const navigate = useNavigate();
 
-  const onSubmit = async (data: SignInSchemaType) => {
-    await signInFn(data);
+  const onSubmit = async (data: ForgotPasswordSchemaType) => {
+    await ForgotPasswordFn(data);
   };
   useEffect(() => {
-    if (data) {
-      toast.success("Signin successful");
-      navigate("/");
+    if (data?.data?.email) {
+      toast.success(
+        ` Email verificaiton link has been sent to ${data?.data.email}`
+      );
+      navigate("/signin");
     }
-  }, [loading]);
+  }, [loading, data]);
 
   return (
     <div className="p-8 min-2-3/4 w-[500px] mx-auto">
-      <h1 className="text-2xl"> Supabase Auth SignIn</h1>
+      <h1 className="text-2xl"> Supabase Auth Forgot Password</h1>
       <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
@@ -71,31 +78,17 @@ export default function SignIn() {
               <p className="text-red-600">{errors.email.message}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="password" className="min-w-24">
-              Password:
-            </label>
-            <Input id="password" {...register("password")} type="password" />
-            {errors.password && (
-              <p className="text-red-600">{errors.password.message}</p>
-            )}
-          </div>
 
           <div className="flex flex-row justify-between mt-4 gap-4 items-center">
-            <div className="flex flex-col gap-2">
-              <Link to="/forgotPassword" className="text-sm underline">
-                Forgot Password?
-              </Link>
-              <Link to="/signup" className="text-sm underline">
-                Don't have an account?
-              </Link>
-            </div>
+            <Link to="/signup" className="text-sm underline">
+              Don't have an account?
+            </Link>
             <Button
               type="submit"
               className="bg-blue-500 text-white"
               disabled={!!loading}
             >
-              SignIn
+              Forgot Password
             </Button>
           </div>
           {error ? (
