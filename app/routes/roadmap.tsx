@@ -1,12 +1,19 @@
 import { OrgRoles } from "constants/organization-contants";
 import { useState } from "react";
-import { redirect, useLoaderData } from "react-router";
+import { redirect, useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { getServerClient } from "~/server";
 import type { Route } from "./+types/roadmap";
 import CreatePostDrawer from "~/components/create-post";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type OnDragEndResponder,
+} from "@hello-pangea/dnd";
 import PostCard from "~/components/post-card";
+import useFetch from "~/hooks/use-fetch";
+import { updatePostOrder } from "~/actions/posts-actions";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const sbServerClient = getServerClient(request);
@@ -30,13 +37,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const posts = await sbServerClient
     .from("Post")
-    .select("*")
+    .select("*, users(*)")
     .eq("boardId", boardRes?.data?.[0]?.id);
+  console.log(JSON.stringify(posts));
 
   return {
     organization: organizations?.data?.[0],
     board: boardRes?.data?.[0],
-    posts: posts?.data,
+    posts: posts?.data || [],
   };
 }
 
@@ -44,12 +52,69 @@ const Roadmap = () => {
   const loaderData = useLoaderData();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [posts, setPosts] = useState(loaderData.posts);
+  const navigate = useNavigate();
+  const {
+    data: updatedPosts,
+    loading: updatePostLoading,
+    error: updatePostError,
+    fn: updatePostOrderFn,
+  } = useFetch(updatePostOrder);
+
   const handlePostCreated = () => {
+    navigate("/dashboard/roadmap");
     // setSelectedStatus(status)
   };
+  const reorder = (list: any, startIndex: number, endindex: number) => {
+    const result = Array.from(list);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endindex, 0, removed);
+    return result;
+  };
 
-  const onDragEnd = () => {};
-  console.log({ selectedStatus });
+  const onDragEnd = async (result: any) => {
+    const { destination, source } = result;
+    if (!destination) {
+      return;
+    }
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+    const newOrderedData = [...posts];
+    console.log(newOrderedData, source.droppableId);
+    const sourceList = newOrderedData.filter(
+      (issue) => issue.statusId === source.droppableId
+    );
+    const destinationList = newOrderedData.filter(
+      (issue) => issue.statusId === destination.droppableId
+    );
+    console.log(sourceList);
+    if (source.droppableId === destination.droppableId) {
+      const reorderCards = reorder(sourceList, source.index, destination.index);
+      reorderCards.forEach((card: any, i) => {
+        card.order = i;
+      });
+    } else {
+      const [movedCard] = sourceList.splice(source.index, 1);
+      movedCard.statusId = destination.droppableId;
+      destinationList.splice(destination.index, 0, movedCard);
+
+      sourceList.forEach((card, i) => {
+        card.order = i;
+      });
+      destinationList.forEach((card, i) => {
+        card.order = i;
+      });
+    }
+    const sortedPosts = newOrderedData.sort((a, b) => a.order - b.order);
+    setPosts(newOrderedData);
+    //api call
+    updatePostOrderFn(sortedPosts);
+  };
   return (
     <>
       <div className="flex flex-col gap-2 p-2">
@@ -83,12 +148,12 @@ const Roadmap = () => {
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className="space-y-2 bg-blue-500/10 p-4 py-2 rounded-lg flex flex-col gap-2"
+                      className="space-y-2 bg-blue-500/10 p-4 py-2 rounded-lg flex flex-col gap-2 h-full"
                     >
                       <h3 className="font-semibold mb-2 text-center">
                         {status?.name}
                       </h3>
-                      {loaderData?.posts
+                      {posts
                         ?.filter((post: any) => {
                           console.log({ post, status });
                           return post.statusId === status.id;
@@ -99,7 +164,7 @@ const Roadmap = () => {
                               key={post.id}
                               draggableId={post.id}
                               index={index}
-                              // isDragDisabled={updatePostLoading}
+                              isDragDisabled={!!updatePostLoading}
                             >
                               {(provided) => {
                                 return (
@@ -132,6 +197,21 @@ const Roadmap = () => {
                           );
                         })}
                       {provided.placeholder}
+                      {!posts?.filter((post: any) => {
+                        return post.statusId === status.id;
+                      })?.length && (
+                        <p className="h-full text-center py-[50%]">
+                          No Posts for status {status?.name}
+                        </p>
+                      )}
+                      <Button
+                        onClick={() => {
+                          setIsDrawerOpen(true);
+                          setSelectedStatus(status.id);
+                        }}
+                      >
+                        Create Post
+                      </Button>
                     </div>
                   );
                 }}
