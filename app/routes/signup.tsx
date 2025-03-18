@@ -25,7 +25,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const sbServerClient = getServerClient(request);
   const userResponse = await sbServerClient.auth.getUser();
   if (userResponse?.data?.user) {
-    throw redirect("/");
+    throw redirect("/dashboard/roadmap");
   }
 
   return {

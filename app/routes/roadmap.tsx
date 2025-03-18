@@ -177,7 +177,7 @@ const Roadmap = () => {
                                       post={post}
                                       onDelete={
                                         () => {}
-                                        // fetchPosts(currentSprint.id)
+                                        // fetchPosts()
                                       }
                                       onUpdate={(updated: any) => {
                                         // setPosts((posts) => {
